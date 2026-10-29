@@ -1,4 +1,4 @@
-const SUPABASE_URL = "https://ixnlxbonzjoysecwtrkj.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://ixnlxbonzjoysecwtrkj.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Qf5rsKWOKKc_gOiLF6AD4A_wSsOOHm4";
 const WEEKLY_QUOTA = 5;
 const TEAM = [
@@ -25,7 +25,13 @@ const monthLabel = (month) => new Date(`${month}-01T12:00:00`).toLocaleDateStrin
 const esc = (s) => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function toast(msg,error=false){const el=$("toast");el.textContent=msg;el.classList.remove("hidden","error");if(error)el.classList.add("error");setTimeout(()=>el.classList.add("hidden"),3400)}
 function message(id,msg,error=false){const el=$(id);el.textContent=msg;el.classList.toggle("error",error)}
-function configReady(){return SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("https://ixnlxbonzjoysecwtrkj.supabase.co/rest/v1/") && SUPABASE_ANON_KEY.length>20 && !SUPABASE_ANON_KEY.includes("sb_publishable_Qf5rsKWOKKc_gOiLF6AD4A_wSsOOHm4")}
+function configReady(){
+  try{
+    const url=new URL(SUPABASE_URL);
+    const validProtocol=url.protocol==="https:"||(url.protocol==="http:"&&["localhost","127.0.0.1"].includes(url.hostname));
+    return validProtocol&&url.pathname==="/"&&!url.search&&!url.hash&&SUPABASE_ANON_KEY.length>20&&!SUPABASE_URL.includes("INSERISCI_")&&!SUPABASE_ANON_KEY.includes("INSERISCI_");
+  }catch{return false}
+}
 function setView(view){$("loginView").classList.toggle("hidden",view!=="login");$("appView").classList.toggle("hidden",view!=="app");$("userArea").classList.toggle("hidden",view!=="app");}
 function setTodayDefaults(){const today=dateISO();$("expenseDate").value=today;$("paymentDate").value=today;const d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7));$("paymentWeek").value=dateISO(d);$("monthPicker").value=today.slice(0,7)}
 function setupProductUI(){const update=()=>{$("expenseTotal").textContent=euro((Number($("expenseQty").value)||0)*(Number($("expensePrice").value)||0))};$("expenseProduct").addEventListener("change",()=>{const p=$("expenseProduct").value;$("expensePrice").value=PRICE[p].toFixed(2);$("expenseCategory").value=p==="Cornetto"?"Cornetti":p==="Tramezzino"?"Tramezzini":"Bevande";update()});$("expenseQty").addEventListener("input",update);$("expensePrice").addEventListener("input",update);$("expenseCategory").addEventListener("change",()=>{const c=$("expenseCategory").value;const p=c==="Cornetti"?"Cornetto":c==="Tramezzini"?"Tramezzino":"Caffè";$("expenseProduct").value=p;$("expensePrice").value=PRICE[p].toFixed(2);update()});}
