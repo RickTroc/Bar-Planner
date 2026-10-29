@@ -19,12 +19,12 @@ Web app statica in italiano per gestire il fondo cassa del bar. Interfaccia pubb
 5. In **Project Settings → API** copia il Project URL e la chiave pubblica `anon`/`publishable`. Non usare mai la `service_role`/secret key nel browser.
 
 ## 2. Configura l'app
-Apri `app.js` e sostituisci:
+Il repository contiene già URL e chiave pubblica del progetto Supabase configurato. Se usi un progetto diverso, modifica in `app.js`:
 ```js
 const SUPABASE_URL = "INSERISCI_QUI_SUPABASE_PROJECT_URL";
 const SUPABASE_ANON_KEY = "INSERISCI_QUI_SUPABASE_PUBLISHABLE_OR_ANON_KEY";
 ```
-con i valori del tuo progetto Supabase. La chiave pubblica è pensata per essere usata nel browser; la sicurezza deriva dalle policy RLS. Non inserire segreti.
+con i valori del tuo progetto Supabase. Usa il Project URL base (senza `/rest/v1`) e la chiave pubblica, pensata per il browser; la sicurezza deriva dalle policy RLS. Non inserire segreti.
 
 ## 3. Configura gli URL di autenticazione
 In Supabase, apri **Authentication → URL Configuration**:
