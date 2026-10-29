@@ -92,8 +92,11 @@ async function boot(){
   $("movementsBody").addEventListener("click",e=>{const b=e.target.closest("[data-table]");if(b)deleteMovement(b.dataset.table,b.dataset.id)});
   $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();setView("login")});
   if(!configReady()){$("setupNotice").classList.remove("hidden");setView("login");$("loginForm").querySelector("button").disabled=true;$("loginForm").querySelector("button").textContent="Completa prima la configurazione";return}
+  const hashParams=new URLSearchParams(window.location.hash.replace(/^#+/,""));
+  const authError=hashParams.get("error_description");
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   const {data:{session}}=await sb.auth.getSession();
+  if(authError&&!session){message("loginMessage","Accesso non riuscito: "+authError.replace(/\+/g," ")+". Richiedi un nuovo link.",true);history.replaceState(null,"",window.location.pathname)}
   if(session)await showApp(session.user);else setView("login");
   sb.auth.onAuthStateChange(async(_event,session)=>{if(session)await showApp(session.user);else{currentUser=null;setView("login")}});
 }
