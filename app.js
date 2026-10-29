@@ -1,5 +1,3 @@
-// Configura questi valori con quelli del progetto Supabase (Settings > API).
-// Usa solo la chiave pubblica anon/publishable, MAI service_role o secret key nel browser.
 const SUPABASE_URL = "https://ixnlxbonzjoysecwtrkj.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "sb_publishable_Qf5rsKWOKKc_gOiLF6AD4A_wSsOOHm4";
 const WEEKLY_QUOTA = 5;
