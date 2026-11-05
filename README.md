@@ -3,7 +3,9 @@
 Web app statica in italiano per gestire il fondo cassa del bar. Interfaccia pubblicata con GitHub Pages; autenticazione e database condiviso tramite Supabase.
 
 ## Funzioni incluse
-- Login tramite link via email (magic link).
+- Login con email e password. Il link di invito serve solo al primo accesso, per scegliere la password; «Password dimenticata?» invia un link di reimpostazione.
+- Cassa totale progressiva (tutte le quote meno tutte le spese fino al mese selezionato).
+- Associazione utente ↔ collega tramite email: la classifica evidenzia «TU» e la quota preseleziona il tuo nome.
 - Membri del team pre-caricati.
 - Quote settimanali registrate come versamenti effettivi.
 - Spese di bevande, cornetti e tramezzini con calcolo automatico del totale.
@@ -15,8 +17,10 @@ Web app statica in italiano per gestire il fondo cassa del bar. Interfaccia pubb
 1. Crea un progetto su https://supabase.com/.
 2. Apri **SQL Editor** e incolla/esegui tutto il file `supabase/schema.sql`.
 3. Vai in **Authentication → Sign In / Providers** e disattiva le registrazioni pubbliche (signups / Allow new users OFF).
-4. In **Authentication → Users**, invita ogni collega tramite **Invite user**. Gli utenti devono accedere con l'indirizzo invitato.
-5. In **Project Settings → API** copia il Project URL e la chiave pubblica `anon`/`publishable`. Non usare mai la `service_role`/secret key nel browser.
+4. In **Authentication → Users**, invita ogni collega tramite **Invite user**. Al primo accesso l'invito apre l'app e chiede di scegliere una password.
+   In **Authentication → Sign In / Providers → Email** lascia attivo il provider Email con password e imposta una lunghezza minima di 8 caratteri.
+5. Associa ogni collega alla sua email con `update public.members set email = 'nome@azienda.it' where name = 'Andrea';` (le email non sono leggibili dal browser).
+6. In **Project Settings → API** copia il Project URL e la chiave pubblica `anon`/`publishable`. Non usare mai la `service_role`/secret key nel browser.
 
 ## 2. Configura l'app
 Il repository contiene già URL e chiave pubblica del progetto Supabase configurato. Se usi un progetto diverso, modifica in `app.js`:
@@ -39,7 +43,7 @@ In Supabase, apri **Authentication → URL Configuration**:
 5. Attendi il completamento del workflow e apri l'URL Pages. Per testare localmente puoi usare un server statico (non aprire `index.html` direttamente come file).
 
 ## 5. Uso quotidiano
-- Ogni collega entra tramite il link email.
+- Ogni collega accede con email e password.
 - In **Aggiungi spesa** registra prodotto e quantità.
 - In **Registra quota** seleziona collega, data, inizio settimana e importo effettivamente versato.
 - Cambia il selettore mese per vedere i movimenti e il saldo del periodo.
