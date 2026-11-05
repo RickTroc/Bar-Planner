@@ -28,6 +28,9 @@ create table if not exists public.payments (
   created_at timestamptz not null default now()
 );
 
+alter table public.members add column if not exists email text;
+create unique index if not exists members_email_key on public.members (lower(email));
+
 create index if not exists expenses_spent_on_idx on public.expenses (spent_on);
 create index if not exists payments_paid_on_idx on public.payments (paid_on);
 
@@ -74,5 +77,17 @@ create policy "Authenticated users can delete payments"
   on public.payments for delete to authenticated using (auth.uid() is not null);
 
 grant usage on schema public to authenticated;
-grant select on public.members to authenticated;
+revoke select on public.members from authenticated;
+grant select (id, name, created_at) on public.members to authenticated;
+
+-- Restituisce il collega associato all'email dell'utente loggato (le email restano private).
+create or replace function public.my_member_id()
+returns uuid language sql stable security definer set search_path = public as $$
+  select id from public.members where lower(email) = lower(auth.jwt() ->> 'email') limit 1
+$$;
+revoke all on function public.my_member_id() from public, anon;
+grant execute on function public.my_member_id() to authenticated;
 grant select, insert, delete on public.expenses, public.payments to authenticated;
+
+-- Associa ogni collega alla propria email (esegui una volta, con le email reali):
+-- update public.members set email = 'nome@azienda.it' where name = 'Andrea';
