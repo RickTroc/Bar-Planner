@@ -41,7 +41,7 @@ async function loadData(){const month=$("monthPicker").value;const start=monthSt
   sb.from("expenses").select("*").gte("spent_on",start).lte("spent_on",end).order("spent_on",{ascending:false}).order("created_at",{ascending:false}),
   sb.from("payments").select("*, members(name)").gte("paid_on",start).lte("paid_on",end).order("paid_on",{ascending:false}).order("created_at",{ascending:false}),
   sb.from("expenses").select("spent_on,amount"),
-  sb.from("payments").select("paid_on,amount")
+  sb.from("payments").select("paid_on,amount,member_id,week_start")
 ]);for(const x of [e,p,allE,allP])if(x.error)throw x.error;expenses=e.data||[];payments=p.data||[];renderDashboard(allE.data||[],allP.data||[])}
 function monthTotal(rows){return rows.reduce((s,r)=>s+Number(r.amount||0),0)}
 function renderDashboard(allExpenses,allPayments){
@@ -58,8 +58,52 @@ function renderDashboard(allExpenses,allPayments){
   expenses.forEach(e=>{const c=cats.find(x=>x.name===e.category);if(c)c.sum+=Number(e.amount||0)});
   $("categoryBreakdown").innerHTML=cats.map(c=>{const pct=out?c.sum/out*100:0;return `<div><div class="breakdown-item-top"><span>${c.name}</span><strong>${euro(c.sum)}</strong></div><div class="bar ${c.color}"><span style="width:${pct}%"></span></div></div>`}).join("");
   $("breakdownTotal").textContent=euro(out);
-  renderHistory(allExpenses,allPayments,month);renderMovements(month);
+  renderHistory(allExpenses,allPayments,month);renderMovements(month);renderGame(allExpenses,allPayments,month);
   $("lastUpdated").textContent=`Aggiornato: ${new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}`;
+}
+const LEVELS=[
+  {name:"Caffè Singolo",icon:"☕",min:0},{name:"Doppio Espresso",icon:"⚡",min:50},{name:"Cappuccino Maestro",icon:"🥛",min:150},
+  {name:"Barista Pro",icon:"🧑‍🍳",min:350},{name:"Maestro Torrefattore",icon:"🔥",min:700},{name:"Leggenda del Bar",icon:"👑",min:1200}
+];
+const shiftWeek=(iso,n)=>{const d=new Date(`${iso}T12:00:00`);d.setDate(d.getDate()+n*7);return dateISO(d)};
+function memberStreak(weeks){
+  let w=weekStartISO(),n=0;if(!weeks.has(w))w=shiftWeek(w,-1);
+  while(weeks.has(w)){n++;w=shiftWeek(w,-1)}return n;
+}
+function renderGame(allExpenses,allPayments,month){
+  const thisWeek=weekStartISO();
+  const total=monthTotal(allPayments);
+  let li=0;LEVELS.forEach((l,i)=>{if(total>=l.min)li=i});
+  const cur=LEVELS[li],next=LEVELS[li+1];
+  $("levelIcon").textContent=cur.icon;$("levelName").textContent=`Livello ${li+1} · ${cur.name}`;
+  $("levelXp").textContent=`${euro(total)} versati in totale`;
+  $("levelTrack").style.width=`${next?Math.min(100,(total-cur.min)/(next.min-cur.min)*100):100}%`;
+  $("levelNote").textContent=next?`Mancano ${euro(next.min-total)} per diventare “${next.name}” ${next.icon}`:"Livello massimo raggiunto: il bar è leggendario!";
+  $("gameWeekBadge").textContent=`Settimana dal ${new Date(`${thisWeek}T12:00:00`).toLocaleDateString("it-IT",{day:"numeric",month:"short"})}`;
+
+  const byMember={};members.forEach(m=>byMember[m.id]={name:m.name,month:0,weeks:new Set(),total:0});
+  allPayments.forEach(p=>{const r=byMember[p.member_id];if(!r)return;r.total+=Number(p.amount||0);if(p.week_start)r.weeks.add(p.week_start);if(p.paid_on&&p.paid_on.slice(0,7)===month)r.month+=Number(p.amount||0)});
+  const rows=Object.values(byMember).map(r=>({...r,streak:memberStreak(r.weeks)})).sort((a,b)=>b.month-a.month||b.streak-a.streak||a.name.localeCompare(b.name));
+  const medals=["🥇","🥈","🥉"],max=Math.max(1,...rows.map(r=>r.month));
+  $("leaderboard").innerHTML=rows.map((r,i)=>`<div class="lb-row${r.month&&i<3?" top":""}"><span class="lb-pos">${r.month&&medals[i]?medals[i]:i+1}</span><div class="lb-main"><div class="lb-line"><strong>${esc(r.name)}</strong><span>${euro(r.month)}</span></div><div class="bar"><span style="width:${r.month/max*100}%"></span></div></div><span class="streak${r.streak?"":" off"}" title="Settimane consecutive di quota">🔥 ${r.streak}</span></div>`).join("")||`<div class="empty-state">Nessun collega presente.</div>`;
+
+  const paidNow=rows.filter(r=>r.weeks.has(thisWeek)).length,n=members.length||1,done=paidNow===members.length&&n>0;
+  $("weeklyChallenge").innerHTML=`<div class="challenge-top"><strong>${paidNow}/${members.length}</strong><span>${done?"Tutti in regola! 🎉":"colleghi in regola questa settimana"}</span></div><div class="bar"><span style="width:${paidNow/n*100}%"></span></div>`;
+
+  const bestStreak=Math.max(0,...rows.map(r=>r.streak)),monthOut=monthTotal(expenses),monthIn=monthTotal(payments);
+  const defs=[
+    {icon:"🔥",name:"Serie da 4",desc:"Un collega paga 4 settimane di fila",ok:bestStreak>=4},
+    {icon:"🌟",name:"Cassa al completo",desc:"Tutti in regola questa settimana",ok:done},
+    {icon:"💚",name:"Mese in attivo",desc:"Entrate superiori alle spese",ok:monthIn>0&&monthIn>=monthOut},
+    {icon:"💯",name:"Quota 100",desc:"Più di 100 € versati in un mese",ok:monthIn>=100},
+    {icon:"🚀",name:"Primi passi",desc:"Almeno 10 versamenti registrati",ok:allPayments.length>=10}
+  ];
+  $("badges").innerHTML=defs.map(b=>`<div class="badge${b.ok?" on":""}" title="${esc(b.desc)}"><span>${b.ok?b.icon:"🔒"}</span><small>${esc(b.name)}</small></div>`).join("");
+}
+function confetti(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const colors=["#19785b","#e7a36a","#7197d5","#8d6bd1","#f2c14e"];
+  for(let i=0;i<36;i++){const s=document.createElement("span");s.className="confetti";s.style.left=`${Math.random()*100}vw`;s.style.background=colors[i%colors.length];s.style.animationDelay=`${Math.random()*.4}s`;s.style.setProperty("--dx",`${(Math.random()-.5)*160}px`);document.body.appendChild(s);setTimeout(()=>s.remove(),2200)}
 }
 function renderHistory(allExpenses,allPayments,currentMonth){
   const totals={};const ensure=(m)=>totals[m]||(totals[m]={income:0,out:0});
@@ -78,7 +122,7 @@ function renderMovements(month){
 function switchTab(tab){activeTab=tab;$("expenseForm").classList.toggle("hidden",tab!=="expense");$("paymentForm").classList.toggle("hidden",tab!=="payment");document.querySelectorAll(".tab").forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle("active",active);b.setAttribute("aria-selected",String(active))});message("actionMessage","")}
 async function handleLogin(e){e.preventDefault();if(!sb)return;message("loginMessage","Invio del link in corso…");const email=$("emailInput").value.trim();const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});if(error){message("loginMessage",error.message,true);return}message("loginMessage","Se l'indirizzo è autorizzato, riceverai un link di accesso via email. Controlla anche la cartella spam.")}
 async function handleExpense(e){e.preventDefault();const product=$("expenseProduct").value,category=$("expenseCategory").value,qty=Number($("expenseQty").value),unit=Number($("expensePrice").value);if(!qty||qty<1||unit<0){message("actionMessage","Controlla quantità e prezzo.",true);return}const payload={spent_on:$("expenseDate").value,category,product,quantity:qty,unit_price:unit,amount:Math.round(qty*unit*100)/100,note:$("expenseNote").value.trim(),created_by:currentUser.id};const {error}=await sb.from("expenses").insert(payload);if(error){message("actionMessage",error.message,true);return}e.target.reset();$("expenseDate").value=dateISO();$("expenseQty").value=1;$("expenseProduct").value="Caffè";$("expenseCategory").value="Bevande";$("expensePrice").value=PRICE["Caffè"].toFixed(2);$("expenseTotal").textContent=euro(PRICE["Caffè"]);message("actionMessage","Spesa registrata correttamente.");await loadData();toast("Spesa aggiunta alla cassa")}
-async function handlePayment(e){e.preventDefault();const amount=Number($("paymentAmount").value);if(amount<=0){message("actionMessage","Inserisci un importo valido.",true);return}const payload={paid_on:$("paymentDate").value,week_start:$("paymentWeek").value,member_id:$("paymentMember").value,amount,note:$("paymentNote").value.trim(),created_by:currentUser.id};const {error}=await sb.from("payments").insert(payload);if(error){message("actionMessage",error.message,true);return}e.target.reset();$("paymentDate").value=dateISO();$("paymentWeek").value=weekStartISO();$("paymentAmount").value=WEEKLY_QUOTA.toFixed(2);message("actionMessage","Versamento registrato correttamente.");await loadData();toast("Quota registrata")}
+async function handlePayment(e){e.preventDefault();const amount=Number($("paymentAmount").value);if(amount<=0){message("actionMessage","Inserisci un importo valido.",true);return}const payload={paid_on:$("paymentDate").value,week_start:$("paymentWeek").value,member_id:$("paymentMember").value,amount,note:$("paymentNote").value.trim(),created_by:currentUser.id};const {error}=await sb.from("payments").insert(payload);if(error){message("actionMessage",error.message,true);return}e.target.reset();$("paymentDate").value=dateISO();$("paymentWeek").value=weekStartISO();$("paymentAmount").value=WEEKLY_QUOTA.toFixed(2);message("actionMessage","Versamento registrato correttamente.");await loadData();confetti();toast("Quota registrata 🎉 +1 per la serie!")}
 function weekStartISO(){const d=new Date();d.setDate(d.getDate()-((d.getDay()+6)%7));return dateISO(d)}
 async function deleteMovement(table,id){if(!confirm("Vuoi eliminare questo movimento? L'operazione non può essere annullata."))return;const {error}=await sb.from(table).delete().eq("id",id);if(error){toast("Errore: "+error.message,true);return}await loadData();toast("Movimento eliminato")}
 function exportCSV(){const rows=[["Data","Tipo","Categoria/collega","Nota","Entrata","Uscita"],...payments.map(p=>[p.paid_on,"Quota",p.members?.name||"",p.note||"",Number(p.amount).toFixed(2),""]),...expenses.map(e=>[e.spent_on,e.product,e.category,e.note||"","",Number(e.amount).toFixed(2)])];const csv=rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(";")).join("\r\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8;"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`fondo-bar-${$("monthPicker").value}.csv`;a.click();URL.revokeObjectURL(a.href)}
